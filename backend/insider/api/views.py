@@ -1,7 +1,8 @@
 from datetime import timedelta
 from django.db.models import Count, Avg
 from django.utils import timezone
-from rest_framework import viewsets, permissions
+from django.utils.dateparse import parse_datetime
+from rest_framework import viewsets, permissions, exceptions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -41,7 +42,53 @@ class IncidenceViewSet(viewsets.ReadOnlyModelViewSet):
             users_affected=Count('footprint__request_user', distinct=True)
         ).order_by('-last_seen')
 
-        filter_type = self.request.query_params.get("filter")
+        params = self.request.query_params
+        
+        # 1. Title Search (Case-insensitive)
+        q = params.get("q")
+        if q:
+            qs = qs.filter(title__icontains=q)
+            
+        # 2. Fingerprint (Exact match)
+        fingerprint = params.get("fingerprint")
+        if fingerprint:
+             qs = qs.filter(fingerprint=fingerprint)
+             
+        # 3. Status (Validated against allowed choices)
+        status = params.get("status")
+        if status:
+            allowed_statuses = [choice[0] for choice in Incidence.STATUS_CHOICES]
+            if status not in allowed_statuses:
+                raise exceptions.ValidationError({"status": f"Invalid status '{status}'. Allowed values are: {', '.join(allowed_statuses)}"})
+            qs = qs.filter(status=status)
+            
+        # 4. Date Ranges
+        first_seen_from = params.get("first_seen_from")
+        if first_seen_from:
+            parsed_date = parse_datetime(first_seen_from)
+            if parsed_date:
+                qs = qs.filter(first_seen__gte=parsed_date)
+
+        first_seen_to = params.get("first_seen_to")
+        if first_seen_to:
+            parsed_date = parse_datetime(first_seen_to)
+            if parsed_date:
+                qs = qs.filter(first_seen__lte=parsed_date)
+
+        last_seen_from = params.get("last_seen_from")
+        if last_seen_from:
+            parsed_date = parse_datetime(last_seen_from)
+            if parsed_date:
+                qs = qs.filter(last_seen__gte=parsed_date)
+
+        last_seen_to = params.get("last_seen_to")
+        if last_seen_to:
+            parsed_date = parse_datetime(last_seen_to)
+            if parsed_date:
+                qs = qs.filter(last_seen__lte=parsed_date)
+        
+        # Original quick filters map over to filter argument for backwards compatibility
+        filter_type = params.get("filter")
 
         # filter by incidences created in the last hour
         if filter_type == "new":

@@ -46,8 +46,18 @@ export const fetchDashboardStats = async (): Promise<DashboardStats> => {
   return response.data;
 };
 
-export const fetchIncidences = async (filter?: string): Promise<Incidence[]> => {
-  const params = filter ? { filter } : {};
+export interface IncidenceQueryParams {
+  filter?: string;
+  q?: string;
+  fingerprint?: string;
+  status?: string;
+  first_seen_from?: string;
+  first_seen_to?: string;
+  last_seen_from?: string;
+  last_seen_to?: string;
+}
+
+export const fetchIncidences = async (params: IncidenceQueryParams = {}): Promise<Incidence[]> => {
   const response = await apiClient.get('incidences/', { params });
   return response.data;
 };
