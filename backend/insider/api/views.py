@@ -63,29 +63,20 @@ class IncidenceViewSet(viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(status=status)
             
         # 4. Date Ranges
-        first_seen_from = params.get("first_seen_from")
-        if first_seen_from:
-            parsed_date = parse_datetime(first_seen_from)
-            if parsed_date:
-                qs = qs.filter(first_seen__gte=parsed_date)
-
-        first_seen_to = params.get("first_seen_to")
-        if first_seen_to:
-            parsed_date = parse_datetime(first_seen_to)
-            if parsed_date:
-                qs = qs.filter(first_seen__lte=parsed_date)
-
-        last_seen_from = params.get("last_seen_from")
-        if last_seen_from:
-            parsed_date = parse_datetime(last_seen_from)
-            if parsed_date:
-                qs = qs.filter(last_seen__gte=parsed_date)
-
-        last_seen_to = params.get("last_seen_to")
-        if last_seen_to:
-            parsed_date = parse_datetime(last_seen_to)
-            if parsed_date:
-                qs = qs.filter(last_seen__lte=parsed_date)
+        date_filters = [
+            ("first_seen_from", "first_seen__gte"),
+            ("first_seen_to", "first_seen__lte"),
+            ("last_seen_from", "last_seen__gte"),
+            ("last_seen_to", "last_seen__lte"),
+        ]
+        
+        for param_name, orm_lookup in date_filters:
+            val = params.get(param_name)
+            if val:
+                parsed_date = parse_datetime(val)
+                if parsed_date is None:
+                    raise exceptions.ValidationError({param_name: f"Invalid datetime format for {param_name}."})
+                qs = qs.filter(**{orm_lookup: parsed_date})
         
         # Original quick filters map over to filter argument for backwards compatibility
         filter_type = params.get("filter")

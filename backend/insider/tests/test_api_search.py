@@ -10,12 +10,10 @@ import urllib.parse
 
 from insider.models import Incidence
 
-# Disable logging during tests
-logging.disable(logging.CRITICAL)
 
 class IncidenceSearchTests(APITestCase):
     databases = '__all__'
-    
+
     def setUp(self):
         # Create a mock staff user
         self.staff_user = User.objects.create_user(
@@ -64,7 +62,7 @@ class IncidenceSearchTests(APITestCase):
         )
         
         # Base URL for incidences (assuming standard router)
-        self.url = '/insider/api/incidences/'
+        self.url = reverse('incidence-list')
         
     def test_search_by_title_partial_match(self):
         """Test partial case-insensitive title search."""
@@ -133,3 +131,9 @@ class IncidenceSearchTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['id'], self.incidence1.id)
+
+    def test_filter_by_invalid_date_raises_400(self):
+        """Ensure invalid dates return 400 Bad Request."""
+        response = self.client.get(f"{self.url}?first_seen_from=invalid-date")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Invalid datetime format", str(response.data))
